@@ -1,0 +1,30 @@
+File: semgrep-grammars/src/tree-sitter-hcl/LICENSE
+Git repo name: tree-sitter-hcl
+Latest commit in repo: a8bd2568d37065a3b451cfd91745607fac4aac84
+Last change in file:
+  commit 17a62974ca4772dd6cea15523be17efe461df665
+  Author: Mitchell Hashimoto <xmitchx@gmail.com>
+  Date:   Mon Jun 21 17:27:55 2021 -0700
+  
+      Create LICENSE
+---
+File: semgrep-grammars/src/tree-sitter-hcl/grammar.js
+Git repo name: tree-sitter-hcl
+Latest commit in repo: a8bd2568d37065a3b451cfd91745607fac4aac84
+Last change in file:
+  commit 57977a89186710d600240659c0549d6db7fffd48
+  Author: Mitchell Hashimoto <mitchell.hashimoto@gmail.com>
+  Date:   Mon Jun 21 18:54:41 2021 -0700
+  
+      grammar: fix empty blocks
+---
+File: semgrep-grammars/src/semgrep-hcl/grammar.js
+Git repo name: ocaml-tree-sitter
+Latest commit in repo: 39ddd8b63c762d3f098eabab470857f6374d1629
+Last change in file:
+  commit 71c3e4911e9105ae4ffb81e8546bff021e730e20
+  Author: Matt Black <github@mafro.net>
+  Date:   Thu Jun 24 10:44:41 2021 +1000
+  
+      Add tree-sitter-hcl support
+---

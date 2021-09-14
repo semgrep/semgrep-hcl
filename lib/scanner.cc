@@ -1,7 +1,10 @@
 #include <tree_sitter/parser.h>
+
+#include <climits>
 #include <vector>
 #include <string>
-#include <cwctype>
+#include <wctype.h>
+#include <assert.h>
 
 namespace {
 
@@ -9,227 +12,278 @@ using std::vector;
 using std::string;
 
 enum TokenType {
-  HEREDOC,
+  QUOTED_TEMPLATE_START,
+  QUOTED_TEMPLATE_END,
+  TEMPLATE_LITERAL_CHUNK,
+  TEMPLATE_INTERPOLATION_START,
+  TEMPLATE_INTERPOLATION_END,
+  HEREDOC_IDENTIFIER,
 };
 
-struct Heredoc {
-  Heredoc() : end_word_indentation_allowed(false) {}
+enum ContextType {
+  TEMPLATE_INTERPOLATION,
+  QUOTED_TEMPLATE,
+  HEREDOC_TEMPLATE,
+};
 
-  string word;
-  bool end_word_indentation_allowed;
+struct Context {
+  ContextType type;
+
+  // valid if type == HEREDOC_TEMPLATE
+  string heredoc_identifier;
 };
 
 struct Scanner {
-  bool has_leading_whitespace;
-  vector<Heredoc> open_heredocs;
 
-  Scanner() : has_leading_whitespace(false) {}
+public:
 
-  void reset() {
-    open_heredocs.clear();
+  unsigned serialize(char* buf) {
+    unsigned size = 0;
+
+    if (context_stack.size() > CHAR_MAX) {
+      return 0;
+    }
+
+    buf[size++] = context_stack.size();
+    for (vector<Context>::iterator it = context_stack.begin(); it != context_stack.end(); ++it) {
+      if (size + 2 + it->heredoc_identifier.size() >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+        return 0;
+      }
+      if (it->heredoc_identifier.size() > CHAR_MAX) {
+        return 0;
+      }
+      buf[size++] = it->type;
+      buf[size++] = it->heredoc_identifier.size();
+      it->heredoc_identifier.copy(&buf[size], it->heredoc_identifier.size());
+      size += it->heredoc_identifier.size();
+    }
+    return size;
   }
 
-  enum ScanContentResult {
-    Error,
-    End
-  };
+  void deserialize(const char* buf, unsigned n) {
+    context_stack.clear();
 
-  unsigned serialize(char *buffer) {
-    unsigned i = 0;
+    if (n == 0) {
+      return;
+    }
 
-    buffer[i++] = open_heredocs.size();
-    for (
-      vector<Heredoc>::iterator iter = open_heredocs.begin(),
-      end = open_heredocs.end();
-      iter != end;
-      ++iter
+    unsigned size = 0;
+    uint8_t context_stack_size = buf[size++];
+    for (unsigned j = 0; j < context_stack_size; j++) {
+      Context ctx;
+      ctx.type = static_cast<ContextType>(buf[size++]);
+      uint8_t heredoc_identifier_size = buf[size++];
+      ctx.heredoc_identifier.assign(buf + size, buf + size + heredoc_identifier_size);
+      size += heredoc_identifier_size;
+      context_stack.push_back(ctx);
+    }
+    assert(size == n);
+  }
+
+  bool scan(TSLexer* lexer, const bool* valid_symbols) {
+    bool has_leading_whitespace_with_newline = false;
+    while (iswspace(lexer->lookahead)) {
+      if (lexer->lookahead == '\n') {
+        has_leading_whitespace_with_newline = true;
+      }
+      skip(lexer);
+    }
+    if (lexer->lookahead == '\0') {
+      return false;
+    }
+    // manage quoted context
+    if (valid_symbols[QUOTED_TEMPLATE_START] && !in_quoted_context() && lexer->lookahead == '"') {
+      Context ctx = { QUOTED_TEMPLATE };
+      context_stack.push_back(ctx);
+      return accept_and_advance(lexer, QUOTED_TEMPLATE_START);
+    }
+    if (valid_symbols[QUOTED_TEMPLATE_END] && in_quoted_context() && lexer->lookahead == '"') {
+      context_stack.pop_back();
+      return accept_and_advance(lexer, QUOTED_TEMPLATE_END);
+    }
+
+    // manage template interpolations
+    if (
+      valid_symbols[TEMPLATE_INTERPOLATION_START] &&
+      valid_symbols[TEMPLATE_LITERAL_CHUNK] &&
+      !in_interpolation_context() &&
+      lexer->lookahead == '$'
     ) {
-      if (i + 2 + iter->word.size() >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) return 0;
-      buffer[i++] = iter->end_word_indentation_allowed;
-      buffer[i++] = iter->word.size();
-      iter->word.copy(&buffer[i], iter->word.size());
-      i += iter->word.size();
+      advance(lexer);
+      if (lexer->lookahead == '{') {
+        Context ctx = { TEMPLATE_INTERPOLATION };
+        context_stack.push_back(ctx);
+        return accept_and_advance(lexer, TEMPLATE_INTERPOLATION_START);
+      }
+      // try to scan escape sequence
+      if (lexer->lookahead == '$') {
+        advance(lexer);
+        if (lexer->lookahead == '{') {
+          // $${
+          return accept_and_advance(lexer, TEMPLATE_LITERAL_CHUNK);
+        }
+      }
+      return accept_inplace(lexer, TEMPLATE_LITERAL_CHUNK);
+    }
+    if (valid_symbols[TEMPLATE_INTERPOLATION_END] && in_interpolation_context() && lexer->lookahead == '}') {
+      context_stack.pop_back();
+      return accept_and_advance(lexer, TEMPLATE_INTERPOLATION_END);
     }
 
-    return i;
-  }
-
-  void deserialize(const char *buffer, unsigned length) {
-    unsigned i = 0;
-    has_leading_whitespace = false;
-    open_heredocs.clear();
-
-    if (length == 0) return;
-
-    uint8_t open_heredoc_count = buffer[i++];
-    for (unsigned j = 0; j < open_heredoc_count; j++) {
-      Heredoc heredoc;
-      heredoc.end_word_indentation_allowed = buffer[i++];
-      uint8_t word_length = buffer[i++];
-      heredoc.word.assign(buffer + i, buffer + i + word_length);
-      i += word_length;
-      open_heredocs.push_back(heredoc);
+    // manage heredoc context
+    if (valid_symbols[HEREDOC_IDENTIFIER] && !in_heredoc_context()) {
+      string identifier;
+      // TODO: check that this is a valid identifier
+      while (iswalnum(lexer->lookahead) || lexer->lookahead == '_' || lexer->lookahead == '-') {
+        identifier.push_back(lexer->lookahead);
+        advance(lexer);
+      }
+      Context ctx = { HEREDOC_TEMPLATE, identifier };
+      context_stack.push_back(ctx);
+      return accept_inplace(lexer, HEREDOC_IDENTIFIER);
     }
+    if (valid_symbols[HEREDOC_IDENTIFIER] && in_heredoc_context() && has_leading_whitespace_with_newline) {
+      string expected_identifier = context_stack.back().heredoc_identifier;
+
+      for (string::iterator it = expected_identifier.begin(); it != expected_identifier.end(); ++it) {
+        if (lexer->lookahead == *it) {
+          advance(lexer);
+        } else {
+          return accept_inplace(lexer, TEMPLATE_LITERAL_CHUNK);
+        }
+      }
+      // check if the identifier is on a line of its own
+      lexer->mark_end(lexer);
+      while (iswspace(lexer->lookahead) && lexer->lookahead != '\n') {
+          advance(lexer);
+      }
+      if (lexer->lookahead == '\n') {
+        context_stack.pop_back();
+        return accept_inplace(lexer, HEREDOC_IDENTIFIER);
+      } else {
+        advance(lexer);
+        lexer->mark_end(lexer);
+        return accept_inplace(lexer, TEMPLATE_LITERAL_CHUNK);
+      }
+    }
+    // manage template literal chunks
+
+    // handle template literal chunks in quoted contexts
+    //
+    // they may not contain newlines and may contain escape sequences
+
+    if (valid_symbols[TEMPLATE_LITERAL_CHUNK] && in_quoted_context()) {
+      switch (lexer->lookahead) {
+        case '\\':
+          advance(lexer);
+          switch (lexer->lookahead) {
+            case '"':
+            case 'n':
+            case 'r':
+            case 't':
+            case '\\':
+              return accept_and_advance(lexer, TEMPLATE_LITERAL_CHUNK);
+            case 'u':
+              for (int i = 0; i < 4; i++) {
+                if (!consume_wxdigit(lexer)) return false;
+              }
+              return accept_and_advance(lexer, TEMPLATE_LITERAL_CHUNK);
+            case 'U':
+              for (int i = 0; i < 8; i++) {
+                if (!consume_wxdigit(lexer)) return false;
+              }
+              return accept_and_advance(lexer, TEMPLATE_LITERAL_CHUNK);
+            default:
+              return false;
+          }
+      }
+    }
+
+    // handle all other quoted template or string literal characters
+    if (valid_symbols[TEMPLATE_LITERAL_CHUNK] && in_template_context()) {
+      return accept_and_advance(lexer, TEMPLATE_LITERAL_CHUNK);
+    }
+
+    // probably not handled by the external scanner
+    return false;
   }
 
-  void skip(TSLexer *lexer) {
-    has_leading_whitespace = true;
-    lexer->advance(lexer, true);
-  }
+private:
+  vector<Context> context_stack;
 
-  void advance(TSLexer *lexer) {
+  void advance(TSLexer* lexer) {
     lexer->advance(lexer, false);
   }
 
-  bool scan_whitespace(TSLexer *lexer) {
-    for (;;) {
-      while (iswspace(lexer->lookahead)) {
-        advance(lexer);
-      }
+  void skip(TSLexer* lexer) { lexer->advance(lexer, true); }
 
-      if (lexer->lookahead == '/') {
-        advance(lexer);
-
-        if (lexer->lookahead == '/') {
-          advance(lexer);
-          while (lexer->lookahead != 0 && lexer->lookahead != '\n') {
-            advance(lexer);
-          }
-        } else {
-          return false;
-        }
-      } else {
-        return true;
-      }
-    }
+  bool accept_inplace(TSLexer* lexer, TokenType token) {
+    lexer->result_symbol = token;
+    return true;
   }
 
-  string scan_heredoc_word(TSLexer *lexer) {
-    string result;
-    int32_t quote;
-
-    switch (lexer->lookahead) {
-      case '\'':
-        quote = lexer->lookahead;
-        advance(lexer);
-        while (lexer->lookahead != quote && lexer->lookahead != 0) {
-          result += lexer->lookahead;
-          advance(lexer);
-        }
-        advance(lexer);
-        break;
-
-      default:
-        if (iswalnum(lexer->lookahead) || lexer->lookahead == '_') {
-          result += lexer->lookahead;
-          advance(lexer);
-          while (iswalnum(lexer->lookahead) || lexer->lookahead == '_') {
-            result += lexer->lookahead;
-            advance(lexer);
-          }
-        }
-        break;
-    }
-
-    return result;
+  bool accept_and_advance(TSLexer* lexer, TokenType token) {
+    advance(lexer);
+    return accept_inplace(lexer, token);
   }
 
-
-  ScanContentResult scan_heredoc_content(TSLexer *lexer) {
-    if (open_heredocs.empty()) return Error;
-    Heredoc heredoc = open_heredocs.front();
-    size_t position_in_word = 0;
-
-    for (;;) {
-      if (position_in_word == heredoc.word.size()) {
-        if (lexer->lookahead == ';' || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
-          open_heredocs.erase(open_heredocs.begin());
-          return End;
-        }
-
-        position_in_word = 0;
-      }
-      if (lexer->lookahead == 0) {
-        open_heredocs.erase(open_heredocs.begin());
-        return Error;
-      }
-
-      if (lexer->lookahead == heredoc.word[position_in_word]) {
-        advance(lexer);
-        position_in_word++;
-      } else {
-        position_in_word = 0;
-        advance(lexer);
-      }
-    }
+  bool consume_wxdigit(TSLexer* lexer) {
+    advance(lexer);
+    return iswxdigit(lexer->lookahead);
   }
 
-  bool scan(TSLexer *lexer, const bool *valid_symbols) {
-    has_leading_whitespace = false;
-
-    lexer->mark_end(lexer);
-
-    if (!scan_whitespace(lexer)) return false;
-
-    if (valid_symbols[HEREDOC]) {
-      if (lexer->lookahead == '<') {
-        advance(lexer);
-        if (lexer->lookahead != '<') return false;
-        advance(lexer);
-
-        if (!scan_whitespace(lexer)) return false;
-
-        // Found a heredoc
-        Heredoc heredoc;
-        heredoc.word = scan_heredoc_word(lexer);
-        if (heredoc.word.empty()) return false;
-        open_heredocs.push_back(heredoc);
-
-        switch (scan_heredoc_content(lexer)) {
-          case Error:
-            return false;
-          case End:
-            lexer->result_symbol = HEREDOC;
-            lexer->mark_end(lexer);
-            return true;
-        }
-      }
+  bool in_context_type(ContextType type) {
+    if (context_stack.empty()) {
+      return false;
     }
-
-    return false;
+    return context_stack.back().type == type;
   }
+
+  bool in_quoted_context() {
+    return in_context_type(QUOTED_TEMPLATE);
+  }
+
+  bool in_heredoc_context() {
+    return in_context_type(HEREDOC_TEMPLATE);
+  }
+
+  bool in_template_context() {
+    return in_quoted_context() || in_heredoc_context();
+  }
+
+  bool in_interpolation_context() {
+    return in_context_type(TEMPLATE_INTERPOLATION);
+  }
+
 };
 
-}
+} // namespace
 
 extern "C" {
 
-void *tree_sitter_hcl_external_scanner_create() {
+// tree sitter callbacks
+void* tree_sitter_hcl_external_scanner_create() {
   return new Scanner();
 }
 
-unsigned tree_sitter_hcl_external_scanner_serialize(void *payload, char *buffer) {
-  Scanner *scanner = static_cast<Scanner *>(payload);
-  return scanner->serialize(buffer);
-}
-
-void tree_sitter_hcl_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
-  Scanner *scanner = static_cast<Scanner *>(payload);
-  scanner->deserialize(buffer, length);
-}
-
-void tree_sitter_hcl_external_scanner_destroy(void *payload) {
-  Scanner *scanner = static_cast<Scanner *>(payload);
+void tree_sitter_hcl_external_scanner_destroy(void* p) {
+  Scanner* scanner = static_cast<Scanner*>(p);
   delete scanner;
 }
 
-bool tree_sitter_hcl_external_scanner_scan(void *payload, TSLexer *lexer,
-                                                  const bool *valid_symbols) {
+unsigned tree_sitter_hcl_external_scanner_serialize(void* p, char* b) {
+  Scanner* scanner = static_cast<Scanner*>(p);
+  return scanner->serialize(b);
+}
 
-  Scanner *scanner = static_cast<Scanner *>(payload);
+void tree_sitter_hcl_external_scanner_deserialize(void* p, const char* b, unsigned n) {
+  Scanner* scanner = static_cast<Scanner*>(p);
+  return scanner->deserialize(b, n);
+}
+
+bool tree_sitter_hcl_external_scanner_scan(void* p, TSLexer* lexer, const bool* valid_symbols) {
+  Scanner* scanner = static_cast<Scanner*>(p);
   return scanner->scan(lexer, valid_symbols);
 }
 
-void tree_sitter_hcl_external_scanner_reset(void *p) {}
-
-}
+} // extern "C"

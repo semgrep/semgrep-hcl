@@ -1,221 +1,203 @@
 const
   PREC = {
-    for_expr: 5,
-    object_elem: 2,
-
     unary: 7,
-    multiplicative: 6,
-    additive: 5,
-    comparative: 4,
-    equal: 3,
-    and: 2,
-    or: 1,
-  },
+    binary_mult: 6,
+    binary_add: 5,
+    binary_ord: 4,
+    binary_comp: 3,
+    binary_and: 2,
+    binary_or: 1,
 
-  newline = '\n',
-  terminator = choice(newline),
-
-  unicodeLetter = /\p{L}/,
-  unicodeDigit = /[0-9]/,
-  unicodeChar = /./,
-  unicodeValue = unicodeChar,
-  letter = choice(unicodeLetter, '_');
-
+    // if possible prefer string_literals to quoted templates
+    string_lit: 2,
+    quoted_template: 1,
+  }
 
 module.exports = grammar({
   name: 'hcl',
 
+  conflicts: $ => [
+  ],
+
   externals: $ => [
-    $.heredoc,
+    $.quoted_template_start,
+    $.quoted_template_end,
+    $._template_literal_chunk,
+    $.template_interpolation_start,
+    $.template_interpolation_end,
+    $.heredoc_identifier,
   ],
 
   extras: $ => [
     $.comment,
-    /\s/
+    $._whitespace,
   ],
 
   rules: {
-    source_file: $ => $.body,
+    // also allow objects to handle .tfvars in json format
+    config_file: $ => optional(choice($.body, $.object)),
 
-    // Body         = (Attribute | Block | OneLineBlock)*;
-    body: $ => repeat1(choice(
-      $.attribute,
-      $.block,
-      $.one_line_block,
-    )),
-
-    // Block = Identifier (StringLit|Identifier)* "{" Newline Body "}" Newline;
-    block: $ => seq(
-      $.identifier,
-      repeat(choice(
-        $.string_literal,
-        $.identifier,
-      )),
-      '{',
-      terminator,
-      optional($.body),
-      '}',
-      terminator,
+    body: $ => repeat1(
+      choice(
+        $.attribute,
+        $.block,
+      ),
     ),
 
-    // OneLineBlock = Identifier (StringLit|Identifier)* "{" (Identifier "=" Expression)? "}" Newline;
-    one_line_block: $ => seq(
-      $.identifier,
-      repeat(choice(
-        $.string_literal,
-        $.identifier,
-      )),
-      '{',
-      optional(seq(
-        $.identifier,
-        '=',
-        $.expression,
-      )),
-      '}',
-      terminator,
-    ),
-
-    // Attribute    = Identifier "=" Expression Newline;
-    attribute:  $ => seq(
+    attribute: $ => seq(
       $.identifier,
       '=',
       $.expression,
-      terminator,
     ),
 
-    // Expression = (
-    //    ExprTerm |
-    //    Operation |
-    //    Conditional
-    // );
-    expression: $ => choice(
-      $.expr_term,
-      $.operation,
+    block: $ => seq(
+      $.identifier,
+      repeat(choice($.string_lit, $.identifier)),
+      $.block_start,
+      optional($.body),
+      $.block_end,
+    ),
+
+    block_start: $ => '{',
+    block_end: $ => '}',
+
+    identifier: $ => token(seq(
+      choice(/\p{ID_Start}/, '_'),
+      repeat(choice(/\p{ID_Continue}/, '-')),
+    )),
+
+    expression: $ => prec.right(choice(
+      $._expr_term,
       $.conditional,
-    ),
-
-    // Conditional = Expression "?" Expression ":" Expression;
-    conditional: $ => prec.left(seq(
-      $.expression,
-      '?',
-      $.expression,
-      ':',
-      $.expression,
     )),
 
-    // Operation = unaryOp | binaryOp;
-    // unaryOp = ("-" | "!") ExprTerm;
-    // binaryOp = ExprTerm binaryOperator ExprTerm;
-    // binaryOperator = compareOperator | arithmeticOperator | logicOperator;
-    // compareOperator = "==" | "!=" | "<" | ">" | "<=" | ">=";
-    // arithmeticOperator = "+" | "-" | "*" | "/" | "%";
-    // logicOperator = "&&" | "||" | "!";
-    operation: $ => choice($.unary_op, $.binary_op),
-
-    unary_op: $ => prec(PREC.unary, seq(
-      choice('-', '!'),
-      $.expr_term,
-    )),
-
-    binary_op: $ => {
-      const table = [
-        [PREC.multiplicative, choice('*', '/', '%')],
-        [PREC.additive, choice('+', '-')],
-        [PREC.comparative, choice('>', '>=', '<', '<=')],
-        [PREC.equal, choice('==', '!=')],
-        [PREC.and, '&&'],
-        [PREC.or, '||'],
-      ];
-
-      return choice(...table.map(([precedence, operator]) =>
-        prec.left(precedence, seq(
-          field('left', $.expression),
-          field('operator', operator),
-          field('right', $.expression)
-        ))
-      ));
-    },
-
-    // ExprTerm = (
-    //    LiteralValue |
-    //    CollectionValue |
-    //    TemplateExpr |
-    //    VariableExpr |
-    //    FunctionCall |
-    //    ForExpr |
-    //    ExprTerm Index |
-    //    ExprTerm GetAttr |
-    //    ExprTerm Splat |
-    //    "(" Expression ")"
-    //);
-    expr_term: $ => choice(
+    // operations are documented as expressions, but our real world samples
+    // contain instances of operations without parentheses. think for example:
+    // x = a == "" && b != ""
+    _expr_term: $ => choice(
       $.literal_value,
-      $.collection_value,
       $.template_expr,
+      $.collection_value,
       $.variable_expr,
       $.function_call,
       $.for_expr,
-      seq($.expr_term, $.index),
-      seq($.expr_term, $.get_attr),
-      seq($.expr_term, $.splat),
+      $.operation,
+      seq($._expr_term, $.index),
+      seq($._expr_term, $.get_attr),
+      seq($._expr_term, $.splat),
       seq('(', $.expression, ')'),
     ),
 
-    // TemplateExpr = quotedTemplate | heredocTemplate;
-    // quotedTemplate = (as defined in prose above);
-    // heredocTemplate = (
-    //     ("<<" | "<<-") Identifier Newline
-    //     (content as defined in prose above)
-    //     Identifier Newline
-    // );
-    template_expr: $ => choice($.quoted_template, $.heredoc),
-
-    quoted_template: $ => seq(
-      '"',
-      repeat(choice(
-        token.immediate(prec(1, /[^"\n\\]+/)),
-        $.escape_sequence,
-      )),
-      '"'
+    literal_value: $ => choice(
+      $.numeric_lit,
+      $.bool_lit,
+      $.null_lit,
+      $.string_lit,
     ),
 
-    string_literal: $ => $.quoted_template,
+    numeric_lit: $ => choice(
+      /[0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)?/,
+      /0x[0-9a-zA-Z]+/
+    ),
 
-    escape_sequence: $ => token.immediate(seq(
-      '\\',
-      choice(
-        /[^xuU]/,
-        /\d{2,3}/,
-        /x[0-9a-fA-F]{2,}/,
-        /u[0-9a-fA-F]{4}/,
-        /U[0-9a-fA-F]{8}/
-      )
+    bool_lit: $ => choice('true', 'false'),
+
+    null_lit: $ => 'null',
+
+    string_lit: $ => prec(PREC.string_lit, seq(
+      $.quoted_template_start,
+      $.template_literal,
+      $.quoted_template_end,
     )),
 
-    // ForExpr = forTupleExpr | forObjectExpr;
-    // forTupleExpr = "[" forIntro Expression forCond? "]";
-    // forObjectExpr = "{" forIntro Expression "=>" Expression "..."? forCond? "}";
-    // forIntro = "for" Identifier ("," Identifier)? "in" Expression ":";
-    // forCond = "if" Expression;
-    for_expr: $ => choice($._for_tuple, $._for_object),
 
-    _for_tuple: $ => seq(
-      '[',
+    collection_value: $ => choice(
+      $.tuple,
+      $.object,
+    ),
+
+    _comma: $ => ',',
+
+    tuple: $ => seq(
+      $.tuple_start,
+      optional($._tuple_elems),
+      $.tuple_end,
+    ),
+
+    tuple_start: $ => '[',
+    tuple_end: $ => ']',
+
+    _tuple_elems: $ => seq(
+      $.expression,
+      repeat(seq(
+        $._comma,
+        $.expression,
+      )),
+      optional($._comma),
+    ),
+
+    object: $ => seq(
+      $.object_start,
+      optional($._object_elems),
+      $.object_end,
+    ),
+
+    object_start: $ => '{',
+    object_end: $ => '}',
+
+    _object_elems: $ => seq(
+      $.object_elem,
+      repeat(seq(
+        optional($._comma),
+        $.object_elem
+      )),
+      optional($._comma),
+    ),
+
+    object_elem: $ => seq(
+      field("key", $.expression),
+      choice('=', ':'),
+      field("val", $.expression),
+    ),
+
+    index: $ => choice($.new_index, $.legacy_index),
+
+    new_index: $ => seq('[', $.expression, ']'),
+    legacy_index: $ => seq('.', /[0-9]+/),
+
+    get_attr: $ => seq('.', $.identifier),
+
+    splat: $ => choice($.attr_splat, $.full_splat),
+
+    attr_splat: $ => prec.right(seq(
+      '.*',
+      repeat(choice($.get_attr, $.index)),
+    )),
+
+    full_splat: $ => prec.right(seq(
+      '[*]',
+      repeat(choice($.get_attr, $.index)),
+    )),
+
+    for_expr: $ => choice($.for_tuple_expr, $.for_object_expr),
+
+    for_tuple_expr: $ => seq(
+      $.tuple_start,
       $.for_intro,
       $.expression,
       optional($.for_cond),
-      ']',
+      $.tuple_end,
     ),
 
-    _for_object: $ => seq(
-      '{',
+    for_object_expr: $ => seq(
+      $.object_start,
       $.for_intro,
       $.expression,
       '=>',
       $.expression,
-      optional('...'),
+      optional($.ellipsis),
       optional($.for_cond),
-      '}',
+      $.object_end,
     ),
 
     for_intro: $ => seq(
@@ -227,126 +209,120 @@ module.exports = grammar({
       ':',
     ),
 
-    for_cond: $ => seq('if', $.expression),
-
-    // LiteralValue = (
-    //  NumericLit |
-    //  "true" |
-    //  "false" |
-    //  "null"
-    //);
-    literal_value: $ => choice(
-      $.numeric_literal,
-      $.true,
-      $.false,
-      $.null,
-    ),
-
-    // Index = "[" Expression "]";
-    index: $ => seq('[', $.expression, ']'),
-
-    // GetAttr = "." Identifier;
-    get_attr: $ => seq('.', $.identifier),
-
-    // Splat = attrSplat | fullSplat;
-    // attrSplat = "." "*" GetAttr*;
-    // fullSplat = "[" "*" "]" (GetAttr | Index)*;
-    splat: $ => choice($.splat_attr, $.splat_full),
-    splat_attr: $ => prec.right(seq('.', '*', repeat($.get_attr))),
-    splat_full: $ => prec.right(seq('[', '*', ']', repeat(choice($.get_attr, $.index)))),
-
-    // CollectionValue = tuple | object;
-    // tuple = "[" (
-    // (Expression ("," Expression)* ","?)?
-    // ) "]";
-    // object = "{" (
-    //    (objectelem ("," objectelem)* ","?)?
-    // ) "}";
-    // objectelem = (Identifier | Expression) ("=" | ":") Expression;
-    collection_value: $ => choice(
-      $.tuple,
-      $.object,
-    ),
-
-    tuple: $ => seq(
-      '[',
-      optional(seq(
-        $.expression,
-        repeat(seq(',', $.expression)),
-        optional(','),
-      )),
-      ']',
-    ),
-
-    object: $ => seq(
-      '{',
-      optional(seq(
-        $.object_elem,
-        repeat(seq(
-          choice(',', terminator),
-          $.object_elem,
-        )),
-        optional(choice(',', terminator)),
-      )),
-      '}',
-    ),
-
-    object_elem: $ => seq(
-      choice($.identifier, $.expression),
-      choice('=', ':'),
+    for_cond: $ => seq(
+      'if',
       $.expression,
     ),
 
-    // VariableExpr = Identifier;
     variable_expr: $ => prec.right($.identifier),
 
-    // FunctionCall = Identifier "(" arguments ")";
-    // Arguments = (
-    //     () ||
-    //    (Expression ("," Expression)* ("," | "...")?)
-    // );
     function_call: $ => seq(
       $.identifier,
-      '(',
-      optional(seq(
-        $.expression,
-        repeat(seq(',',$.expression)),
-        optional(choice(',', '...')),
-      )),
-      ')',
+      $._function_call_start,
+      optional($.function_arguments),
+      $._function_call_end,
     ),
 
-    // NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
-    // decimal    = '0' .. '9';
-    // expmark    = ('e' | 'E') ("+" | "-")?;
-    numeric_literal: $ => token(seq(
-      repeat1(/[0-9]/),
-      optional(seq('.', repeat1(/[0-9]/))),
-      optional(seq(
-        choice('e', 'E'),
-        optional(choice('+', '-')),
-        repeat1(/[0-9]/),
-      )),
+    _function_call_start: $ => '(',
+    _function_call_end: $ => ')',
+
+    function_arguments: $ => prec.right(seq(
+      $.expression,
+      repeat(seq($._comma, $.expression,)),
+      optional(choice(',', $.ellipsis)),
     )),
 
-    identifier: $ => token(seq(
-      letter,
-      repeat(choice(letter, unicodeDigit, '-'))
+    ellipsis: $ => token('...'),
+
+    conditional: $ => prec.left(seq(
+      $.expression,
+      '?',
+      $.expression,
+      ':',
+      $.expression,
     )),
 
-    null: $ => 'null',
-    true: $ => 'true',
-    false: $ => 'false',
+    operation: $ => choice($.unary_operation, $.binary_operation),
+
+    unary_operation: $ => prec.left(PREC.unary, seq(choice('-', '!'), $._expr_term)),
+
+    binary_operation: $ => {
+      const table = [
+        [PREC.binary_mult, choice('*', '/', '%')],
+        [PREC.binary_add, choice('+', '-')],
+        [PREC.binary_ord, choice('>', '>=', '<', '<=')],
+        [PREC.binary_comp, choice('==', '!=')],
+        [PREC.binary_and, choice('&&')],
+        [PREC.binary_or, choice('||')],
+      ];
+
+      return choice(...table.map(([precedence, operator]) =>
+        prec.left(precedence, seq($._expr_term, operator, $._expr_term),
+        ))
+      );
+    },
+
+    template_expr: $ => choice(
+      $.quoted_template,
+      $.heredoc_template,
+    ),
+
+    quoted_template: $ => prec(PREC.quoted_template, seq(
+      $.quoted_template_start,
+      optional(repeat(choice(
+        $.template_literal,
+        $.template_interpolation,
+        $.template_directive,
+      ))),
+      $.quoted_template_end,
+    )),
+
+    heredoc_template: $ => seq(
+      $.heredoc_start,
+      $.heredoc_identifier,
+      optional(repeat(choice(
+        $.template_literal,
+        $.template_interpolation,
+        $.template_directive,
+      ))),
+      $.heredoc_identifier,
+    ),
+
+    heredoc_start: $ => choice('<<', '<<-'),
+
+    strip_marker: $ => '~',
+
+    template_literal: $ => prec.right(repeat1(
+      $._template_literal_chunk,
+    )),
+
+    template_interpolation: $ => seq(
+      $.template_interpolation_start,
+      optional($.strip_marker),
+      optional($.expression),
+      optional($.strip_marker),
+      $.template_interpolation_end,
+    ),
+
+    // TODO
+      template_directive: $ => choice(
+	  '%{if TODO',
+	  '%{for TODO',
+      //$.template_for,
+      //$.template_if,
+    ),
 
     // http://stackoverflow.com/questions/13014947/regex-to-match-a-c-style-multiline-comment/36328890#36328890
     comment: $ => token(choice(
-      seq('//', /.*/),
       seq('#', /.*/),
+      seq('//', /.*/),
       seq(
         '/*',
         /[^*]*\*+([^/*][^*]*\*+)*/,
         '/'
       )
-    ))
+    )),
+
+    _whitespace: $ => token(/\s/),
   }
 });

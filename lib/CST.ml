@@ -2,142 +2,166 @@
 (*
    hcl grammar
 
-   entrypoint: source_file
+   entrypoint: config_file
 *)
 
 open! Sexplib.Conv
 open Tree_sitter_run
 
-type escape_sequence = Token.t
+type pat_780550e = Token.t (* pattern [0-9]+ *)
+[@@deriving sexp_of]
+
+type quoted_template_end = Token.t
+[@@deriving sexp_of]
+
+type pat_b66053b = Token.t (* pattern 0x[0-9a-zA-Z]+ *)
+[@@deriving sexp_of]
+
+type bool_lit = [
+    `True of Token.t (* "true" *)
+  | `False of Token.t (* "false" *)
+]
+[@@deriving sexp_of]
+
+type template_interpolation_end = Token.t
+[@@deriving sexp_of]
+
+type pat_e950a1b = Token.t (* pattern [0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)? *)
+[@@deriving sexp_of]
+
+type heredoc_start = [
+    `LTLT of Token.t (* "<<" *)
+  | `LTLTDASH of Token.t (* "<<-" *)
+]
+[@@deriving sexp_of]
+
+type template_literal_chunk = Token.t
 [@@deriving sexp_of]
 
 type identifier = Token.t
 [@@deriving sexp_of]
 
-type anon_choice_COMMA_30f2cfc = [
-    `COMMA of Token.t (* "," *)
-  | `Choice_LF of [ `LF of Token.t (* "\n" *) ]
+type quoted_template_start = Token.t
+[@@deriving sexp_of]
+
+type template_interpolation_start = Token.t
+[@@deriving sexp_of]
+
+type ellipsis = Token.t
+[@@deriving sexp_of]
+
+type heredoc_identifier = Token.t
+[@@deriving sexp_of]
+
+type template_directive = [
+    `PERC_5eef7bb of Token.t (* "%{if TODO" *)
+  | `PERC_58c37dd of Token.t (* "%{for TODO" *)
 ]
 [@@deriving sexp_of]
 
-type heredoc = Token.t
+type numeric_lit = [
+    `Pat_e950a1b of pat_e950a1b (*tok*)
+  | `Pat_b66053b of pat_b66053b (*tok*)
+]
 [@@deriving sexp_of]
 
-type numeric_literal = Token.t
+type template_literal = template_literal_chunk (*tok*) list (* one or more *)
 [@@deriving sexp_of]
 
-type quoted_template = (
-    Token.t (* "\"" *)
-  * [ `Blank of unit (* blank *) | `Esc_seq of escape_sequence (*tok*) ]
-      list (* zero or more *)
-  * Token.t (* "\"" *)
+type string_lit = (
+    quoted_template_start (*tok*) * template_literal
+  * quoted_template_end (*tok*)
 )
-[@@deriving sexp_of]
-
-type literal_value = [
-    `Nume_lit of numeric_literal (*tok*)
-  | `True of Token.t (* "true" *)
-  | `False of Token.t (* "false" *)
-  | `Null of Token.t (* "null" *)
-]
-[@@deriving sexp_of]
-
-type string_literal = quoted_template
 [@@deriving sexp_of]
 
 type get_attr = (Token.t (* "." *) * identifier (*tok*))
 [@@deriving sexp_of]
 
-type template_expr = [
-    `Quoted_temp of string_literal
-  | `Here of heredoc (*tok*)
+type literal_value = [
+    `Nume_lit of numeric_lit
+  | `Bool_lit of bool_lit
+  | `Null_lit of Token.t (* "null" *)
+  | `Str_lit of string_lit
 ]
 [@@deriving sexp_of]
 
-type anon_choice_str_lit_9b73c1d = [
-    `Str_lit of string_literal
-  | `Id of identifier (*tok*)
+type anon_choice_get_attr_7bbf24f = [
+    `Get_attr of get_attr
+  | `Index of index
 ]
-[@@deriving sexp_of]
 
-type binary_op = [
-    `Exp_choice_STAR_exp of (
-        expression
+and anon_choice_temp_lit_c764a73 = [
+    `Temp_lit of template_literal
+  | `Temp_interp of (
+        template_interpolation_start (*tok*)
+      * Token.t (* "~" *) option
+      * expression option
+      * Token.t (* "~" *) option
+      * template_interpolation_end (*tok*)
+    )
+  | `Temp_dire of template_directive
+]
+
+and binary_operation = [
+    `Expr_term_choice_STAR_expr_term of (
+        expr_term
       * [
             `STAR of Token.t (* "*" *)
           | `SLASH of Token.t (* "/" *)
           | `PERC of Token.t (* "%" *)
         ]
-      * expression
+      * expr_term
     )
-  | `Exp_choice_PLUS_exp of (
-        expression
+  | `Expr_term_choice_PLUS_expr_term of (
+        expr_term
       * [ `PLUS of Token.t (* "+" *) | `DASH of Token.t (* "-" *) ]
-      * expression
+      * expr_term
     )
-  | `Exp_choice_GT_exp of (
-        expression
+  | `Expr_term_choice_GT_expr_term of (
+        expr_term
       * [
             `GT of Token.t (* ">" *)
           | `GTEQ of Token.t (* ">=" *)
           | `LT of Token.t (* "<" *)
           | `LTEQ of Token.t (* "<=" *)
         ]
-      * expression
+      * expr_term
     )
-  | `Exp_choice_EQEQ_exp of (
-        expression
+  | `Expr_term_choice_EQEQ_expr_term of (
+        expr_term
       * [ `EQEQ of Token.t (* "==" *) | `BANGEQ of Token.t (* "!=" *) ]
-      * expression
+      * expr_term
     )
-  | `Exp_AMPAMP_exp of (expression * Token.t (* "&&" *) * expression)
-  | `Exp_BARBAR_exp of (expression * Token.t (* "||" *) * expression)
+  | `Expr_term_choice_AMPAMP_expr_term of (
+        expr_term
+      * [ `AMPAMP of Token.t (* "&&" *) ]
+      * expr_term
+    )
+  | `Expr_term_choice_BARBAR_expr_term of (
+        expr_term
+      * [ `BARBAR of Token.t (* "||" *) ]
+      * expr_term
+    )
 ]
 
 and collection_value = [
-    `Tuple of (
-        Token.t (* "[" *)
-      * (
-            expression
-          * (Token.t (* "," *) * expression) list (* zero or more *)
-          * Token.t (* "," *) option
-        )
-          option
-      * Token.t (* "]" *)
-    )
-  | `Obj of (
-        Token.t (* "{" *)
-      * (
-            object_elem
-          * (anon_choice_COMMA_30f2cfc * object_elem) list (* zero or more *)
-          * anon_choice_COMMA_30f2cfc option
-        )
-          option
-      * Token.t (* "}" *)
-    )
+    `Tuple of (Token.t (* "[" *) * tuple_elems option * Token.t (* "]" *))
+  | `Obj of object_
 ]
 
 and expr_term = [
     `Lit_value of literal_value
-  | `Coll_value of collection_value
   | `Temp_expr of template_expr
+  | `Coll_value of collection_value
   | `Var_expr of identifier (*tok*)
   | `Func_call of (
         identifier (*tok*)
       * Token.t (* "(" *)
-      * (
-            expression
-          * (Token.t (* "," *) * expression) list (* zero or more *)
-          * [
-                `COMMA of Token.t (* "," *)
-              | `DOTDOTDOT of Token.t (* "..." *)
-            ]
-              option
-        )
-          option
+      * function_arguments option
       * Token.t (* ")" *)
     )
   | `For_expr of for_expr
+  | `Oper of operation
   | `Expr_term_index of (expr_term * index)
   | `Expr_term_get_attr of (expr_term * get_attr)
   | `Expr_term_splat of (expr_term * splat)
@@ -146,7 +170,6 @@ and expr_term = [
 
 and expression = [
     `Expr_term of expr_term
-  | `Oper of operation
   | `Cond of (
         expression * Token.t (* "?" *) * expression * Token.t (* ":" *)
       * expression
@@ -156,20 +179,20 @@ and expression = [
 and for_cond = (Token.t (* "if" *) * expression)
 
 and for_expr = [
-    `For_tuple of (
+    `For_tuple_expr of (
         Token.t (* "[" *)
       * for_intro
       * expression
       * for_cond option
       * Token.t (* "]" *)
     )
-  | `For_obj of (
+  | `For_obj_expr of (
         Token.t (* "{" *)
       * for_intro
       * expression
       * Token.t (* "=>" *)
       * expression
-      * Token.t (* "..." *) option
+      * ellipsis (*tok*) option
       * for_cond option
       * Token.t (* "}" *)
     )
@@ -184,91 +207,137 @@ and for_intro = (
   * Token.t (* ":" *)
 )
 
-and index = (Token.t (* "[" *) * expression * Token.t (* "]" *))
+and function_arguments = (
+    expression
+  * (Token.t (* "," *) * expression) list (* zero or more *)
+  * [ `COMMA of Token.t (* "," *) | `Ellips of ellipsis (*tok*) ] option
+)
+
+and index = [
+    `New_index of (Token.t (* "[" *) * expression * Token.t (* "]" *))
+  | `Legacy_index of (Token.t (* "." *) * pat_780550e (*tok*))
+]
+
+and object_ = (Token.t (* "{" *) * object_elems option * Token.t (* "}" *))
 
 and object_elem = (
-    [ `Id of identifier (*tok*) | `Exp of expression ]
+    expression
   * [ `EQ of Token.t (* "=" *) | `COLON of Token.t (* ":" *) ]
   * expression
 )
 
+and object_elems = (
+    object_elem
+  * (Token.t (* "," *) option * object_elem) list (* zero or more *)
+  * Token.t (* "," *) option
+)
+
 and operation = [
-    `Un_op of (
+    `Un_oper of (
         [ `DASH of Token.t (* "-" *) | `BANG of Token.t (* "!" *) ]
       * expr_term
     )
-  | `Bin_op of binary_op
+  | `Bin_oper of binary_operation
 ]
 
 and splat = [
-    `Splat_attr of (
-        Token.t (* "." *)
-      * Token.t (* "*" *)
-      * get_attr list (* zero or more *)
+    `Attr_splat of (
+        Token.t (* ".*" *)
+      * anon_choice_get_attr_7bbf24f list (* zero or more *)
     )
-  | `Splat_full of (
-        Token.t (* "[" *)
-      * Token.t (* "*" *)
-      * Token.t (* "]" *)
-      * [ `Get_attr of get_attr | `Index of index ] list (* zero or more *)
+  | `Full_splat of (
+        Token.t (* "[*]" *)
+      * anon_choice_get_attr_7bbf24f list (* zero or more *)
     )
 ]
-[@@deriving sexp_of]
 
-type one_line_block = (
-    identifier (*tok*)
-  * anon_choice_str_lit_9b73c1d list (* zero or more *)
-  * Token.t (* "{" *)
-  * (identifier (*tok*) * Token.t (* "=" *) * expression) option
-  * Token.t (* "}" *)
-  * [ `LF of Token.t (* "\n" *) ]
+and template_expr = [
+    `Quoted_temp of (
+        quoted_template_start (*tok*)
+      * anon_choice_temp_lit_c764a73 list (* zero or more *) option
+      * quoted_template_end (*tok*)
+    )
+  | `Here_temp of (
+        heredoc_start
+      * heredoc_identifier (*tok*)
+      * anon_choice_temp_lit_c764a73 list (* zero or more *) option
+      * heredoc_identifier (*tok*)
+    )
+]
+
+and tuple_elems = (
+    expression
+  * (Token.t (* "," *) * expression) list (* zero or more *)
+  * Token.t (* "," *) option
 )
 [@@deriving sexp_of]
 
-type attribute = (
-    identifier (*tok*)
-  * Token.t (* "=" *)
-  * expression
-  * [ `LF of Token.t (* "\n" *) ]
-)
+type attribute = (identifier (*tok*) * Token.t (* "=" *) * expression)
 [@@deriving sexp_of]
 
 type block = (
     identifier (*tok*)
-  * anon_choice_str_lit_9b73c1d list (* zero or more *)
+  * [ `Str_lit of string_lit | `Id of identifier (*tok*) ]
+      list (* zero or more *)
   * Token.t (* "{" *)
-  * [ `LF of Token.t (* "\n" *) ]
-  * source_file option
+  * body option
   * Token.t (* "}" *)
-  * [ `LF of Token.t (* "\n" *) ]
 )
 
-and body =
-  [ `Attr of attribute | `Blk of block | `One_line_blk of one_line_block ]
-    list (* one or more *)
-
-and source_file = body
+and body = [ `Attr of attribute | `Blk of block ] list (* one or more *)
 [@@deriving sexp_of]
 
-type true_ (* inlined *) = Token.t (* "true" *)
+type config_file = [ `Body of body | `Obj of object_ ] option
+[@@deriving sexp_of]
+
+type null_lit (* inlined *) = Token.t (* "null" *)
+[@@deriving sexp_of]
+
+type strip_marker (* inlined *) = Token.t (* "~" *)
+[@@deriving sexp_of]
+
+type block_start (* inlined *) = Token.t (* "{" *)
+[@@deriving sexp_of]
+
+type block_end (* inlined *) = Token.t (* "}" *)
+[@@deriving sexp_of]
+
+type object_start (* inlined *) = Token.t (* "{" *)
+[@@deriving sexp_of]
+
+type whitespace (* inlined *) = Token.t
+[@@deriving sexp_of]
+
+type comma (* inlined *) = Token.t (* "," *)
+[@@deriving sexp_of]
+
+type function_call_end (* inlined *) = Token.t (* ")" *)
+[@@deriving sexp_of]
+
+type function_call_start (* inlined *) = Token.t (* "(" *)
+[@@deriving sexp_of]
+
+type tuple_end (* inlined *) = Token.t (* "]" *)
 [@@deriving sexp_of]
 
 type comment (* inlined *) = Token.t
 [@@deriving sexp_of]
 
-type null (* inlined *) = Token.t (* "null" *)
+type tuple_start (* inlined *) = Token.t (* "[" *)
 [@@deriving sexp_of]
 
-type false_ (* inlined *) = Token.t (* "false" *)
+type object_end (* inlined *) = Token.t (* "}" *)
+[@@deriving sexp_of]
+
+type legacy_index (* inlined *) = (Token.t (* "." *) * pat_780550e (*tok*))
 [@@deriving sexp_of]
 
 type variable_expr (* inlined *) = identifier (*tok*)
 [@@deriving sexp_of]
 
-type splat_attr (* inlined *) = (
-    Token.t (* "." *)
-  * Token.t (* "*" *)
-  * get_attr list (* zero or more *)
+type attr_splat (* inlined *) = (
+    Token.t (* ".*" *)
+  * anon_choice_get_attr_7bbf24f list (* zero or more *)
 )
 [@@deriving sexp_of]
 
@@ -278,79 +347,83 @@ type conditional (* inlined *) = (
 )
 [@@deriving sexp_of]
 
-type for_object (* inlined *) = (
+type for_object_expr (* inlined *) = (
     Token.t (* "{" *)
   * for_intro
   * expression
   * Token.t (* "=>" *)
   * expression
-  * Token.t (* "..." *) option
+  * ellipsis (*tok*) option
   * for_cond option
   * Token.t (* "}" *)
 )
 [@@deriving sexp_of]
 
-type for_tuple (* inlined *) = (
+type for_tuple_expr (* inlined *) = (
     Token.t (* "[" *)
   * for_intro
   * expression
   * for_cond option
   * Token.t (* "]" *)
+)
+[@@deriving sexp_of]
+
+type full_splat (* inlined *) = (
+    Token.t (* "[*]" *)
+  * anon_choice_get_attr_7bbf24f list (* zero or more *)
 )
 [@@deriving sexp_of]
 
 type function_call (* inlined *) = (
     identifier (*tok*)
   * Token.t (* "(" *)
-  * (
-        expression
-      * (Token.t (* "," *) * expression) list (* zero or more *)
-      * [ `COMMA of Token.t (* "," *) | `DOTDOTDOT of Token.t (* "..." *) ]
-          option
-    )
-      option
+  * function_arguments option
   * Token.t (* ")" *)
 )
 [@@deriving sexp_of]
 
-type object_ (* inlined *) = (
-    Token.t (* "{" *)
-  * (
-        object_elem
-      * (anon_choice_COMMA_30f2cfc * object_elem) list (* zero or more *)
-      * anon_choice_COMMA_30f2cfc option
-    )
-      option
-  * Token.t (* "}" *)
+type heredoc_template (* inlined *) = (
+    heredoc_start
+  * heredoc_identifier (*tok*)
+  * anon_choice_temp_lit_c764a73 list (* zero or more *) option
+  * heredoc_identifier (*tok*)
 )
 [@@deriving sexp_of]
 
-type splat_full (* inlined *) = (
-    Token.t (* "[" *)
-  * Token.t (* "*" *)
-  * Token.t (* "]" *)
-  * [ `Get_attr of get_attr | `Index of index ] list (* zero or more *)
+type new_index (* inlined *) = (
+    Token.t (* "[" *) * expression * Token.t (* "]" *)
+)
+[@@deriving sexp_of]
+
+type quoted_template (* inlined *) = (
+    quoted_template_start (*tok*)
+  * anon_choice_temp_lit_c764a73 list (* zero or more *) option
+  * quoted_template_end (*tok*)
+)
+[@@deriving sexp_of]
+
+type template_interpolation (* inlined *) = (
+    template_interpolation_start (*tok*)
+  * Token.t (* "~" *) option
+  * expression option
+  * Token.t (* "~" *) option
+  * template_interpolation_end (*tok*)
 )
 [@@deriving sexp_of]
 
 type tuple (* inlined *) = (
     Token.t (* "[" *)
-  * (
-        expression
-      * (Token.t (* "," *) * expression) list (* zero or more *)
-      * Token.t (* "," *) option
-    )
-      option
+  * tuple_elems option
   * Token.t (* "]" *)
 )
 [@@deriving sexp_of]
 
-type unary_op (* inlined *) = (
+type unary_operation (* inlined *) = (
     [ `DASH of Token.t (* "-" *) | `BANG of Token.t (* "!" *) ]
   * expr_term
 )
 [@@deriving sexp_of]
 
 let dump_tree root =
-  sexp_of_source_file root
+  sexp_of_config_file root
   |> Print_sexp.to_stdout

@@ -237,11 +237,12 @@ and index = [
 and object_ = (Token.t (* "{" *) * object_elems option * Token.t (* "}" *))
 
 and object_elem = [
-  `Exp_choice_EQ_exp of (
-      expression
-    * [ `EQ of Token.t (* "=" *) | `COLON of Token.t (* ":" *) ]
-    * expression
-  )
+    `Exp_choice_EQ_exp of (
+        expression
+      * [ `EQ of Token.t (* "=" *) | `COLON of Token.t (* ":" *) ]
+      * expression
+    )
+  | `Semg_ellips of Token.t (* "..." *)
 ]
 
 and object_elems = (

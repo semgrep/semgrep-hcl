@@ -407,6 +407,7 @@ let children_regexps : (string * Run.exp option) list = [
         |];
         Token (Name "expression");
       ];
+      Token (Name "semgrep_ellipsis");
     |];
   );
   "object_elems",
@@ -1463,6 +1464,10 @@ and trans_object_elem ((kind, body) : mt) : CST.object_elem =
                 )
             | _ -> assert false
             )
+          )
+      | Alt (1, v) ->
+          `Semg_ellips (
+            trans_semgrep_ellipsis (Run.matcher_token v)
           )
       | _ -> assert false
       )

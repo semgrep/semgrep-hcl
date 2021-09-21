@@ -386,6 +386,7 @@ and map_object_elem (env : env) (x : CST.object_elem) =
       in
       let v3 = map_expression env v3 in
       todo env (v1, v2, v3)
+  | `Semg_ellips tok -> (* "..." *) token env tok
   )
 
 and map_object_elems (env : env) ((v1, v2, v3) : CST.object_elems) =

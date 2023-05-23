@@ -34,21 +34,9 @@ let extras = [
 ]
 
 let children_regexps : (string * Run.exp option) list = [
-  "pat_780550e", None;
   "null_lit", None;
-  "template_interpolation_end", None;
   "quoted_template_end", None;
-  "pat_b66053b", None;
   "block_start", None;
-  "bool_lit",
-  Some (
-    Alt [|
-      Token (Literal "true");
-      Token (Literal "false");
-    |];
-  );
-  "block_end", None;
-  "pat_e950a1b", None;
   "heredoc_start",
   Some (
     Alt [|
@@ -56,35 +44,47 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Literal "<<-");
     |];
   );
-  "object_start", None;
-  "template_interpolation_start", None;
-  "tuple_end", None;
-  "tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc", None;
-  "comma", None;
-  "semgrep_ellipsis", None;
-  "quoted_template_start", None;
-  "tuple_start", None;
-  "function_call_end", None;
-  "function_call_start", None;
   "strip_marker", None;
+  "pat_b66053b", None;
+  "block_end", None;
+  "pat_e950a1b", None;
+  "object_start", None;
+  "tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc", None;
+  "quoted_template_start", None;
+  "function_call_start", None;
   "ellipsis", None;
   "heredoc_identifier", None;
+  "template_interpolation_end", None;
+  "comma", None;
+  "semgrep_ellipsis", None;
+  "tuple_start", None;
+  "pat_780550e", None;
+  "bool_lit",
+  Some (
+    Alt [|
+      Token (Literal "true");
+      Token (Literal "false");
+    |];
+  );
+  "template_interpolation_start", None;
+  "tuple_end", None;
+  "function_call_end", None;
   "template_literal_chunk", None;
   "semgrep_metavariable", None;
   "object_end", None;
-  "legacy_index",
-  Some (
-    Seq [
-      Token (Literal ".");
-      Token (Name "pat_780550e");
-    ];
-  );
   "numeric_lit",
   Some (
     Alt [|
       Token (Name "pat_e950a1b");
       Token (Name "pat_b66053b");
     |];
+  );
+  "legacy_index",
+  Some (
+    Seq [
+      Token (Literal ".");
+      Token (Name "pat_780550e");
+    ];
   );
   "template_literal",
   Some (
@@ -570,17 +570,7 @@ let children_regexps : (string * Run.exp option) list = [
   );
 ]
 
-let trans_pat_780550e ((kind, body) : mt) : CST.pat_780550e =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
 let trans_null_lit ((kind, body) : mt) : CST.null_lit =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_template_interpolation_end ((kind, body) : mt) : CST.template_interpolation_end =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -590,39 +580,7 @@ let trans_quoted_template_end ((kind, body) : mt) : CST.quoted_template_end =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_pat_b66053b ((kind, body) : mt) : CST.pat_b66053b =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-
 let trans_block_start ((kind, body) : mt) : CST.block_start =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_bool_lit ((kind, body) : mt) : CST.bool_lit =
-  match body with
-  | Children v ->
-      (match v with
-      | Alt (0, v) ->
-          `True (
-            Run.trans_token (Run.matcher_token v)
-          )
-      | Alt (1, v) ->
-          `False (
-            Run.trans_token (Run.matcher_token v)
-          )
-      | _ -> assert false
-      )
-  | Leaf _ -> assert false
-
-let trans_block_end ((kind, body) : mt) : CST.block_end =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_pat_e950a1b ((kind, body) : mt) : CST.pat_e950a1b =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -643,17 +601,27 @@ let trans_heredoc_start ((kind, body) : mt) : CST.heredoc_start =
       )
   | Leaf _ -> assert false
 
+let trans_strip_marker ((kind, body) : mt) : CST.strip_marker =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_pat_b66053b ((kind, body) : mt) : CST.pat_b66053b =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_block_end ((kind, body) : mt) : CST.block_end =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_pat_e950a1b ((kind, body) : mt) : CST.pat_e950a1b =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
 let trans_object_start ((kind, body) : mt) : CST.object_start =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_template_interpolation_start ((kind, body) : mt) : CST.template_interpolation_start =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_tuple_end ((kind, body) : mt) : CST.tuple_end =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -662,6 +630,32 @@ let trans_tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc ((kind, body) : mt) : CS
   match body with
   | Leaf v -> v
   | Children _ -> assert false
+
+let trans_quoted_template_start ((kind, body) : mt) : CST.quoted_template_start =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_function_call_start ((kind, body) : mt) : CST.function_call_start =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_ellipsis ((kind, body) : mt) : CST.ellipsis =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_heredoc_identifier ((kind, body) : mt) : CST.heredoc_identifier =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_template_interpolation_end ((kind, body) : mt) : CST.template_interpolation_end =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
 
 let trans_comma ((kind, body) : mt) : CST.comma =
   match body with
@@ -673,37 +667,43 @@ let trans_semgrep_ellipsis ((kind, body) : mt) : CST.semgrep_ellipsis =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_quoted_template_start ((kind, body) : mt) : CST.quoted_template_start =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
 let trans_tuple_start ((kind, body) : mt) : CST.tuple_start =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
 
+let trans_pat_780550e ((kind, body) : mt) : CST.pat_780550e =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_bool_lit ((kind, body) : mt) : CST.bool_lit =
+  match body with
+  | Children v ->
+      (match v with
+      | Alt (0, v) ->
+          `True (
+            Run.trans_token (Run.matcher_token v)
+          )
+      | Alt (1, v) ->
+          `False (
+            Run.trans_token (Run.matcher_token v)
+          )
+      | _ -> assert false
+      )
+  | Leaf _ -> assert false
+
+let trans_template_interpolation_start ((kind, body) : mt) : CST.template_interpolation_start =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_tuple_end ((kind, body) : mt) : CST.tuple_end =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
 let trans_function_call_end ((kind, body) : mt) : CST.function_call_end =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_function_call_start ((kind, body) : mt) : CST.function_call_start =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_strip_marker ((kind, body) : mt) : CST.strip_marker =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_ellipsis ((kind, body) : mt) : CST.ellipsis =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_heredoc_identifier ((kind, body) : mt) : CST.heredoc_identifier =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -724,19 +724,6 @@ let trans_object_end ((kind, body) : mt) : CST.object_end =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_legacy_index ((kind, body) : mt) : CST.legacy_index =
-  match body with
-  | Children v ->
-      (match v with
-      | Seq [v0; v1] ->
-          (
-            Run.trans_token (Run.matcher_token v0),
-            trans_pat_780550e (Run.matcher_token v1)
-          )
-      | _ -> assert false
-      )
-  | Leaf _ -> assert false
-
 let trans_numeric_lit ((kind, body) : mt) : CST.numeric_lit =
   match body with
   | Children v ->
@@ -748,6 +735,19 @@ let trans_numeric_lit ((kind, body) : mt) : CST.numeric_lit =
       | Alt (1, v) ->
           `Pat_b66053b (
             trans_pat_b66053b (Run.matcher_token v)
+          )
+      | _ -> assert false
+      )
+  | Leaf _ -> assert false
+
+let trans_legacy_index ((kind, body) : mt) : CST.legacy_index =
+  match body with
+  | Children v ->
+      (match v with
+      | Seq [v0; v1] ->
+          (
+            Run.trans_token (Run.matcher_token v0),
+            trans_pat_780550e (Run.matcher_token v1)
           )
       | _ -> assert false
       )

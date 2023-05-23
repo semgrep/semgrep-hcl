@@ -8,78 +8,59 @@
 open! Sexplib.Conv
 open Tree_sitter_run
 
-type pat_780550e = Token.t (* pattern [0-9]+ *)
-[@@deriving sexp_of]
-
-type template_interpolation_end = Token.t
-[@@deriving sexp_of]
-
 type quoted_template_end = Token.t
-[@@deriving sexp_of]
-
-type pat_b66053b = Token.t (* pattern 0x[0-9a-zA-Z]+ *)
-[@@deriving sexp_of]
-
-type bool_lit = [
-    `True of Token.t (* "true" *)
-  | `False of Token.t (* "false" *)
-]
-[@@deriving sexp_of]
-
-type pat_e950a1b = Token.t (* pattern [0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)? *)
-[@@deriving sexp_of]
 
 type heredoc_start = [
     `LTLT of Token.t (* "<<" *)
   | `LTLTDASH of Token.t (* "<<-" *)
 ]
-[@@deriving sexp_of]
 
-type template_interpolation_start = Token.t
-[@@deriving sexp_of]
+type pat_b66053b = Token.t (* pattern 0x[0-9a-zA-Z]+ *)
+
+type pat_e950a1b = Token.t (* pattern [0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)? *)
 
 type tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc = Token.t
-[@@deriving sexp_of]
 
 type quoted_template_start = Token.t
-[@@deriving sexp_of]
 
 type ellipsis = Token.t
-[@@deriving sexp_of]
 
 type heredoc_identifier = Token.t
-[@@deriving sexp_of]
+
+type template_interpolation_end = Token.t
+
+type pat_780550e = Token.t (* pattern [0-9]+ *)
+
+type bool_lit = [
+    `True of Token.t (* "true" *)
+  | `False of Token.t (* "false" *)
+]
+
+type template_interpolation_start = Token.t
 
 type template_literal_chunk = Token.t
-[@@deriving sexp_of]
 
 type semgrep_metavariable = Token.t
-[@@deriving sexp_of]
 
 type numeric_lit = [
-    `Pat_e950a1b of pat_e950a1b (*tok*)
-  | `Pat_b66053b of pat_b66053b (*tok*)
+    `Pat_e950a1b of pat_e950a1b
+  | `Pat_b66053b of pat_b66053b
 ]
-[@@deriving sexp_of]
 
 type template_literal = template_literal_chunk (*tok*) list (* one or more *)
-[@@deriving sexp_of]
 
 type identifier = [
     `Tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc of
-      tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc (*tok*)
+      tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc
   | `Semg_meta of semgrep_metavariable (*tok*)
 ]
-[@@deriving sexp_of]
 
 type string_lit = (
     quoted_template_start (*tok*) * template_literal
   * quoted_template_end (*tok*)
 )
-[@@deriving sexp_of]
 
 type variable_expr = identifier
-[@@deriving sexp_of]
 
 type literal_value = [
     `Nume_lit of numeric_lit
@@ -87,10 +68,8 @@ type literal_value = [
   | `Null_lit of Token.t (* "null" *)
   | `Str_lit of string_lit
 ]
-[@@deriving sexp_of]
 
 type get_attr = (Token.t (* "." *) * variable_expr)
-[@@deriving sexp_of]
 
 type anon_choice_get_attr_7bbf24f = [
     `Get_attr of get_attr
@@ -231,7 +210,7 @@ and function_call = (
 
 and index = [
     `New_index of (Token.t (* "[" *) * expression * Token.t (* "]" *))
-  | `Legacy_index of (Token.t (* "." *) * pat_780550e (*tok*))
+  | `Legacy_index of (Token.t (* "." *) * pat_780550e)
 ]
 
 and object_ = (Token.t (* "{" *) * object_elems option * Token.t (* "}" *))
@@ -289,10 +268,8 @@ and tuple_elems = (
   * (Token.t (* "," *) * expression) list (* zero or more *)
   * Token.t (* "," *) option
 )
-[@@deriving sexp_of]
 
 type attribute = (variable_expr * Token.t (* "=" *) * expression)
-[@@deriving sexp_of]
 
 type block = (
     variable_expr
@@ -309,75 +286,55 @@ and body =
     | `Semg_ellips of Token.t (* "..." *)
   ]
     list (* one or more *)
-[@@deriving sexp_of]
 
 type config_file = [
     `Opt_choice_body of [ `Body of body | `Obj of object_ ] option
   | `Semg_exp of (Token.t (* "__SEMGREP_EXPRESSION" *) * expression)
 ]
-[@@deriving sexp_of]
 
 type null_lit (* inlined *) = Token.t (* "null" *)
-[@@deriving sexp_of]
-
-type whitespace (* inlined *) = Token.t
-[@@deriving sexp_of]
 
 type block_start (* inlined *) = Token.t (* "{" *)
-[@@deriving sexp_of]
-
-type block_end (* inlined *) = Token.t (* "}" *)
-[@@deriving sexp_of]
-
-type object_start (* inlined *) = Token.t (* "{" *)
-[@@deriving sexp_of]
-
-type tuple_end (* inlined *) = Token.t (* "]" *)
-[@@deriving sexp_of]
-
-type comma (* inlined *) = Token.t (* "," *)
-[@@deriving sexp_of]
-
-type semgrep_ellipsis (* inlined *) = Token.t (* "..." *)
-[@@deriving sexp_of]
-
-type tuple_start (* inlined *) = Token.t (* "[" *)
-[@@deriving sexp_of]
-
-type function_call_end (* inlined *) = Token.t (* ")" *)
-[@@deriving sexp_of]
-
-type function_call_start (* inlined *) = Token.t (* "(" *)
-[@@deriving sexp_of]
 
 type strip_marker (* inlined *) = Token.t (* "~" *)
-[@@deriving sexp_of]
+
+type block_end (* inlined *) = Token.t (* "}" *)
+
+type object_start (* inlined *) = Token.t (* "{" *)
+
+type function_call_start (* inlined *) = Token.t (* "(" *)
+
+type whitespace (* inlined *) = Token.t
+
+type comma (* inlined *) = Token.t (* "," *)
+
+type semgrep_ellipsis (* inlined *) = Token.t (* "..." *)
+
+type tuple_start (* inlined *) = Token.t (* "[" *)
+
+type tuple_end (* inlined *) = Token.t (* "]" *)
+
+type function_call_end (* inlined *) = Token.t (* ")" *)
 
 type comment (* inlined *) = Token.t
-[@@deriving sexp_of]
 
 type object_end (* inlined *) = Token.t (* "}" *)
-[@@deriving sexp_of]
 
-type legacy_index (* inlined *) = (Token.t (* "." *) * pat_780550e (*tok*))
-[@@deriving sexp_of]
+type legacy_index (* inlined *) = (Token.t (* "." *) * pat_780550e)
 
 type attr_splat (* inlined *) = (
     Token.t (* ".*" *)
   * anon_choice_get_attr_7bbf24f list (* zero or more *)
 )
-[@@deriving sexp_of]
 
 type conditional (* inlined *) = (
     expression * Token.t (* "?" *) * expression * Token.t (* ":" *)
   * expression
 )
-[@@deriving sexp_of]
 
 type deep_ellipsis (* inlined *) = (
     Token.t (* "<..." *) * expression * Token.t (* "...>" *)
 )
-[@@deriving sexp_of]
 
 type for_object_expr (* inlined *) = (
     Token.t (* "{" *)
@@ -389,7 +346,6 @@ type for_object_expr (* inlined *) = (
   * for_cond option
   * Token.t (* "}" *)
 )
-[@@deriving sexp_of]
 
 type for_tuple_expr (* inlined *) = (
     Token.t (* "[" *)
@@ -398,13 +354,11 @@ type for_tuple_expr (* inlined *) = (
   * for_cond option
   * Token.t (* "]" *)
 )
-[@@deriving sexp_of]
 
 type full_splat (* inlined *) = (
     Token.t (* "[*]" *)
   * anon_choice_get_attr_7bbf24f list (* zero or more *)
 )
-[@@deriving sexp_of]
 
 type heredoc_template (* inlined *) = (
     heredoc_start
@@ -412,19 +366,16 @@ type heredoc_template (* inlined *) = (
   * anon_choice_temp_lit_0082c06 list (* zero or more *) option
   * heredoc_identifier (*tok*)
 )
-[@@deriving sexp_of]
 
 type new_index (* inlined *) = (
     Token.t (* "[" *) * expression * Token.t (* "]" *)
 )
-[@@deriving sexp_of]
 
 type quoted_template (* inlined *) = (
     quoted_template_start (*tok*)
   * anon_choice_temp_lit_0082c06 list (* zero or more *) option
   * quoted_template_end (*tok*)
 )
-[@@deriving sexp_of]
 
 type template_interpolation (* inlined *) = (
     template_interpolation_start (*tok*)
@@ -433,26 +384,18 @@ type template_interpolation (* inlined *) = (
   * Token.t (* "~" *) option
   * template_interpolation_end (*tok*)
 )
-[@@deriving sexp_of]
 
 type tuple (* inlined *) = (
     Token.t (* "[" *)
   * tuple_elems option
   * Token.t (* "]" *)
 )
-[@@deriving sexp_of]
 
 type unary_operation (* inlined *) = (
     [ `DASH of Token.t (* "-" *) | `BANG of Token.t (* "!" *) ]
   * expr_term
 )
-[@@deriving sexp_of]
 
 type semgrep_expression (* inlined *) = (
     Token.t (* "__SEMGREP_EXPRESSION" *) * expression
 )
-[@@deriving sexp_of]
-
-let dump_tree root =
-  sexp_of_config_file root
-  |> Print_sexp.to_stdout

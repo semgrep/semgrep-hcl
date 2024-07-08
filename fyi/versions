@@ -20,17 +20,11 @@ Last change in file:
 ---
 File: semgrep-grammars/src/semgrep-hcl/grammar.js
 Git repo name: ocaml-tree-sitter-semgrep
-Latest commit in repo: c9a8bca714137c43f8aede5ed2215193d53defc9
+Latest commit in repo: 443abb0c5a8394106a0067396a521640dc9c8eb1
 Last change in file:
-  commit c26f8adb33c1bc65cbb21bd7fe973dae52a86f84
-  Author: pad <yoann.padioleau@gmail.com>
-  Date:   Tue Sep 21 14:31:49 2021 +0200
+  commit 443abb0c5a8394106a0067396a521640dc9c8eb1
+  Author: brandonspark <wu.brandonj@gmail.com>
+  Date:   Tue Jul 2 16:23:09 2024 -0700
   
-      [HCL] Allow ellipsis for object_elem
-      
-      This will help https://github.com/returntocorp/semgrep/issues/3913
-      
-      test plan:
-      test file included
-      ./test-lang hcl
+      add in metavar ellipsis for hcl
 ---

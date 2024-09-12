@@ -22,9 +22,6 @@ let blank (env : env) () =
 let map_quoted_template_end (env : env) (tok : CST.quoted_template_end) =
   (* quoted_template_end *) token env tok
 
-let map_semgrep_metavariable (env : env) (tok : CST.semgrep_metavariable) =
-  (* semgrep_metavariable *) token env tok
-
 let map_heredoc_start (env : env) (x : CST.heredoc_start) =
   (match x with
   | `LTLT tok -> R.Case ("LTLT",
@@ -41,8 +38,8 @@ let map_pat_b66053b (env : env) (tok : CST.pat_b66053b) =
 let map_pat_e950a1b (env : env) (tok : CST.pat_e950a1b) =
   (* pattern [0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)? *) token env tok
 
-let map_template_literal_chunk (env : env) (tok : CST.template_literal_chunk) =
-  (* template_literal_chunk *) token env tok
+let map_tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc (env : env) (tok : CST.tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc) =
+  (* tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc *) token env tok
 
 let map_quoted_template_start (env : env) (tok : CST.quoted_template_start) =
   (* quoted_template_start *) token env tok
@@ -53,14 +50,11 @@ let map_ellipsis (env : env) (tok : CST.ellipsis) =
 let map_heredoc_identifier (env : env) (tok : CST.heredoc_identifier) =
   (* heredoc_identifier *) token env tok
 
-let map_template_interpolation_start (env : env) (tok : CST.template_interpolation_start) =
-  (* template_interpolation_start *) token env tok
+let map_template_interpolation_end (env : env) (tok : CST.template_interpolation_end) =
+  (* template_interpolation_end *) token env tok
 
 let map_pat_780550e (env : env) (tok : CST.pat_780550e) =
   (* pattern [0-9]+ *) token env tok
-
-let map_semgrep_ellipsis_metavar (env : env) (tok : CST.semgrep_ellipsis_metavar) =
-  (* pattern \$\.\.\.[a-zA-Z_][a-zA-Z_0-9]* *) token env tok
 
 let map_bool_lit (env : env) (x : CST.bool_lit) =
   (match x with
@@ -72,11 +66,14 @@ let map_bool_lit (env : env) (x : CST.bool_lit) =
     )
   )
 
-let map_template_interpolation_end (env : env) (tok : CST.template_interpolation_end) =
-  (* template_interpolation_end *) token env tok
+let map_template_interpolation_start (env : env) (tok : CST.template_interpolation_start) =
+  (* template_interpolation_start *) token env tok
 
-let map_tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc (env : env) (tok : CST.tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc) =
-  (* tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc *) token env tok
+let map_template_literal_chunk (env : env) (tok : CST.template_literal_chunk) =
+  (* template_literal_chunk *) token env tok
+
+let map_semgrep_metavariable (env : env) (tok : CST.semgrep_metavariable) =
+  (* semgrep_metavariable *) token env tok
 
 let map_numeric_lit (env : env) (x : CST.numeric_lit) =
   (match x with
@@ -347,9 +344,6 @@ and map_expr_term (env : env) (x : CST.expr_term) =
       let v3 = (* "...>" *) token env v3 in
       R.Tuple [v1; v2; v3]
     )
-  | `Semg_ellips_meta tok -> R.Case ("Semg_ellips_meta",
-      (* pattern \$\.\.\.[a-zA-Z_][a-zA-Z_0-9]* *) token env tok
-    )
   )
 
 and map_expression (env : env) (x : CST.expression) =
@@ -515,9 +509,6 @@ and map_object_elem (env : env) (x : CST.object_elem) =
   | `Semg_ellips tok -> R.Case ("Semg_ellips",
       (* "..." *) token env tok
     )
-  | `Semg_ellips_meta tok -> R.Case ("Semg_ellips_meta",
-      (* pattern \$\.\.\.[a-zA-Z_][a-zA-Z_0-9]* *) token env tok
-    )
   )
 
 and map_object_elems (env : env) ((v1, v2, v3) : CST.object_elems) =
@@ -673,9 +664,6 @@ and map_body (env : env) (xs : CST.body) =
     | `Semg_ellips tok -> R.Case ("Semg_ellips",
         (* "..." *) token env tok
       )
-    | `Semg_ellips_meta tok -> R.Case ("Semg_ellips_meta",
-        (* pattern \$\.\.\.[a-zA-Z_][a-zA-Z_0-9]* *) token env tok
-      )
     )
   ) xs)
 
@@ -702,7 +690,30 @@ let map_config_file (env : env) (x : CST.config_file) =
     )
   )
 
+let map_whitespace (env : env) (tok : CST.whitespace) =
+  (* whitespace *) token env tok
+
+let map_comment (env : env) (tok : CST.comment) =
+  (* comment *) token env tok
+
 let dump_tree root =
   map_config_file () root
-  |> Tree_sitter_run.Raw_tree.to_string
-  |> print_string
+  |> Tree_sitter_run.Raw_tree.to_channel stdout
+
+let map_extra (env : env) (x : CST.extra) =
+  match x with
+  | Comment (_loc, x) -> ("comment", "comment", map_comment env x)
+  | Whitespace (_loc, x) -> ("whitespace", "whitespace", map_whitespace env x)
+
+let dump_extras (extras : CST.extras) =
+  List.iter (fun extra ->
+    let ts_rule_name, ocaml_type_name, raw_tree = map_extra () extra in
+    let details =
+      if ocaml_type_name <> ts_rule_name then
+        Printf.sprintf " (OCaml type '%s')" ocaml_type_name
+      else
+        ""
+    in
+    Printf.printf "%s%s:\n" ts_rule_name details;
+    Tree_sitter_run.Raw_tree.to_channel stdout raw_tree
+  ) extras

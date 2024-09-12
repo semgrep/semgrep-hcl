@@ -10,8 +10,6 @@ open Tree_sitter_run
 
 type quoted_template_end = Token.t
 
-type semgrep_metavariable = Token.t
-
 type heredoc_start = [
     `LTLT of Token.t (* "<<" *)
   | `LTLTDASH of Token.t (* "<<-" *)
@@ -21,7 +19,7 @@ type pat_b66053b = Token.t (* pattern 0x[0-9a-zA-Z]+ *)
 
 type pat_e950a1b = Token.t (* pattern [0-9]+(\.[0-9]+([eE][-+]?[0-9]+)?)? *)
 
-type template_literal_chunk = Token.t
+type tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc = Token.t
 
 type quoted_template_start = Token.t
 
@@ -29,21 +27,20 @@ type ellipsis = Token.t
 
 type heredoc_identifier = Token.t
 
-type template_interpolation_start = Token.t
+type template_interpolation_end = Token.t
 
 type pat_780550e = Token.t (* pattern [0-9]+ *)
-
-type semgrep_ellipsis_metavar =
-  Token.t (* pattern \$\.\.\.[a-zA-Z_][a-zA-Z_0-9]* *)
 
 type bool_lit = [
     `True of Token.t (* "true" *)
   | `False of Token.t (* "false" *)
 ]
 
-type template_interpolation_end = Token.t
+type template_interpolation_start = Token.t
 
-type tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc = Token.t
+type template_literal_chunk = Token.t
+
+type semgrep_metavariable = Token.t
 
 type numeric_lit = [
     `Pat_e950a1b of pat_e950a1b
@@ -157,7 +154,6 @@ and expr_term = [
   | `Deep_ellips of (
         Token.t (* "<..." *) * expression * Token.t (* "...>" *)
     )
-  | `Semg_ellips_meta of semgrep_ellipsis_metavar (*tok*)
 ]
 
 and expression = [
@@ -226,7 +222,6 @@ and object_elem = [
       * expression
     )
   | `Semg_ellips of Token.t (* "..." *)
-  | `Semg_ellips_meta of semgrep_ellipsis_metavar (*tok*)
 ]
 
 and object_elems = (
@@ -289,7 +284,6 @@ and body =
       `Attr of attribute
     | `Blk of block
     | `Semg_ellips of Token.t (* "..." *)
-    | `Semg_ellips_meta of semgrep_ellipsis_metavar (*tok*)
   ]
     list (* one or more *)
 
@@ -302,25 +296,25 @@ type null_lit (* inlined *) = Token.t (* "null" *)
 
 type block_start (* inlined *) = Token.t (* "{" *)
 
+type strip_marker (* inlined *) = Token.t (* "~" *)
+
 type block_end (* inlined *) = Token.t (* "}" *)
 
 type object_start (* inlined *) = Token.t (* "{" *)
 
 type function_call_start (* inlined *) = Token.t (* "(" *)
 
-type strip_marker (* inlined *) = Token.t (* "~" *)
+type whitespace (* inlined *) = Token.t
 
 type comma (* inlined *) = Token.t (* "," *)
 
 type semgrep_ellipsis (* inlined *) = Token.t (* "..." *)
 
+type tuple_start (* inlined *) = Token.t (* "[" *)
+
 type tuple_end (* inlined *) = Token.t (* "]" *)
 
-type whitespace (* inlined *) = Token.t
-
 type function_call_end (* inlined *) = Token.t (* ")" *)
-
-type tuple_start (* inlined *) = Token.t (* "[" *)
 
 type comment (* inlined *) = Token.t
 
@@ -405,3 +399,7 @@ type unary_operation (* inlined *) = (
 type semgrep_expression (* inlined *) = (
     Token.t (* "__SEMGREP_EXPRESSION" *) * expression
 )
+
+type extra = Comment of Loc.t * comment | Whitespace of Loc.t * whitespace
+
+type extras = extra list

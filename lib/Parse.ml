@@ -37,7 +37,6 @@ let children_regexps : (string * Run.exp option) list = [
   "null_lit", None;
   "quoted_template_end", None;
   "block_start", None;
-  "semgrep_metavariable", None;
   "heredoc_start",
   Some (
     Alt [|
@@ -45,22 +44,22 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Literal "<<-");
     |];
   );
+  "strip_marker", None;
   "pat_b66053b", None;
   "block_end", None;
   "pat_e950a1b", None;
   "object_start", None;
-  "template_literal_chunk", None;
+  "tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc", None;
   "quoted_template_start", None;
   "function_call_start", None;
   "ellipsis", None;
   "heredoc_identifier", None;
-  "strip_marker", None;
+  "template_interpolation_end", None;
+  "whitespace", None;
   "comma", None;
   "semgrep_ellipsis", None;
-  "tuple_end", None;
-  "template_interpolation_start", None;
+  "tuple_start", None;
   "pat_780550e", None;
-  "semgrep_ellipsis_metavar", None;
   "bool_lit",
   Some (
     Alt [|
@@ -68,10 +67,12 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Literal "false");
     |];
   );
-  "template_interpolation_end", None;
-  "tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc", None;
+  "template_interpolation_start", None;
+  "tuple_end", None;
   "function_call_end", None;
-  "tuple_start", None;
+  "comment", None;
+  "template_literal_chunk", None;
+  "semgrep_metavariable", None;
   "object_end", None;
   "numeric_lit",
   Some (
@@ -80,18 +81,18 @@ let children_regexps : (string * Run.exp option) list = [
       Token (Name "pat_b66053b");
     |];
   );
-  "template_literal",
-  Some (
-    Repeat1 (
-      Token (Name "template_literal_chunk");
-    );
-  );
   "legacy_index",
   Some (
     Seq [
       Token (Literal ".");
       Token (Name "pat_780550e");
     ];
+  );
+  "template_literal",
+  Some (
+    Repeat1 (
+      Token (Name "template_literal_chunk");
+    );
   );
   "identifier",
   Some (
@@ -247,7 +248,6 @@ let children_regexps : (string * Run.exp option) list = [
       |];
       Token (Name "semgrep_ellipsis");
       Token (Name "deep_ellipsis");
-      Token (Name "semgrep_ellipsis_metavar");
     |];
   );
   "expression",
@@ -410,7 +410,6 @@ let children_regexps : (string * Run.exp option) list = [
         Token (Name "expression");
       ];
       Token (Name "semgrep_ellipsis");
-      Token (Name "semgrep_ellipsis_metavar");
     |];
   );
   "object_elems",
@@ -556,7 +555,6 @@ let children_regexps : (string * Run.exp option) list = [
         Token (Name "attribute");
         Token (Name "block");
         Token (Name "semgrep_ellipsis");
-        Token (Name "semgrep_ellipsis_metavar");
       |];
     );
   );
@@ -589,11 +587,6 @@ let trans_block_start ((kind, body) : mt) : CST.block_start =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_semgrep_metavariable ((kind, body) : mt) : CST.semgrep_metavariable =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
 let trans_heredoc_start ((kind, body) : mt) : CST.heredoc_start =
   match body with
   | Children v ->
@@ -609,6 +602,11 @@ let trans_heredoc_start ((kind, body) : mt) : CST.heredoc_start =
       | _ -> assert false
       )
   | Leaf _ -> assert false
+
+let trans_strip_marker ((kind, body) : mt) : CST.strip_marker =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
 
 let trans_pat_b66053b ((kind, body) : mt) : CST.pat_b66053b =
   match body with
@@ -630,7 +628,7 @@ let trans_object_start ((kind, body) : mt) : CST.object_start =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_template_literal_chunk ((kind, body) : mt) : CST.template_literal_chunk =
+let trans_tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc ((kind, body) : mt) : CST.tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -655,7 +653,12 @@ let trans_heredoc_identifier ((kind, body) : mt) : CST.heredoc_identifier =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_strip_marker ((kind, body) : mt) : CST.strip_marker =
+let trans_template_interpolation_end ((kind, body) : mt) : CST.template_interpolation_end =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_whitespace ((kind, body) : mt) : CST.whitespace =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -670,22 +673,12 @@ let trans_semgrep_ellipsis ((kind, body) : mt) : CST.semgrep_ellipsis =
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_tuple_end ((kind, body) : mt) : CST.tuple_end =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_template_interpolation_start ((kind, body) : mt) : CST.template_interpolation_start =
+let trans_tuple_start ((kind, body) : mt) : CST.tuple_start =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
 
 let trans_pat_780550e ((kind, body) : mt) : CST.pat_780550e =
-  match body with
-  | Leaf v -> v
-  | Children _ -> assert false
-
-let trans_semgrep_ellipsis_metavar ((kind, body) : mt) : CST.semgrep_ellipsis_metavar =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
@@ -706,27 +699,35 @@ let trans_bool_lit ((kind, body) : mt) : CST.bool_lit =
       )
   | Leaf _ -> assert false
 
-let trans_template_interpolation_end ((kind, body) : mt) : CST.template_interpolation_end =
+let trans_template_interpolation_start ((kind, body) : mt) : CST.template_interpolation_start =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc ((kind, body) : mt) : CST.tok_choice_pat_3e8fcfc_rep_choice_pat_71519dc =
+let trans_tuple_end ((kind, body) : mt) : CST.tuple_end =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
-
 
 let trans_function_call_end ((kind, body) : mt) : CST.function_call_end =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
 
-let trans_tuple_start ((kind, body) : mt) : CST.tuple_start =
+let trans_comment ((kind, body) : mt) : CST.comment =
   match body with
   | Leaf v -> v
   | Children _ -> assert false
 
+let trans_template_literal_chunk ((kind, body) : mt) : CST.template_literal_chunk =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
+
+let trans_semgrep_metavariable ((kind, body) : mt) : CST.semgrep_metavariable =
+  match body with
+  | Leaf v -> v
+  | Children _ -> assert false
 
 let trans_object_end ((kind, body) : mt) : CST.object_end =
   match body with
@@ -749,16 +750,6 @@ let trans_numeric_lit ((kind, body) : mt) : CST.numeric_lit =
       )
   | Leaf _ -> assert false
 
-let trans_template_literal ((kind, body) : mt) : CST.template_literal =
-  match body with
-  | Children v ->
-      Run.repeat1
-        (fun v ->
-          trans_template_literal_chunk (Run.matcher_token v)
-        )
-        v
-  | Leaf _ -> assert false
-
 let trans_legacy_index ((kind, body) : mt) : CST.legacy_index =
   match body with
   | Children v ->
@@ -770,6 +761,16 @@ let trans_legacy_index ((kind, body) : mt) : CST.legacy_index =
           )
       | _ -> assert false
       )
+  | Leaf _ -> assert false
+
+let trans_template_literal ((kind, body) : mt) : CST.template_literal =
+  match body with
+  | Children v ->
+      Run.repeat1
+        (fun v ->
+          trans_template_literal_chunk (Run.matcher_token v)
+        )
+        v
   | Leaf _ -> assert false
 
 let trans_identifier ((kind, body) : mt) : CST.identifier =
@@ -1159,10 +1160,6 @@ and trans_expr_term ((kind, body) : mt) : CST.expr_term =
           `Deep_ellips (
             trans_deep_ellipsis (Run.matcher_token v)
           )
-      | Alt (3, v) ->
-          `Semg_ellips_meta (
-            trans_semgrep_ellipsis_metavar (Run.matcher_token v)
-          )
       | _ -> assert false
       )
   | Leaf _ -> assert false
@@ -1482,10 +1479,6 @@ and trans_object_elem ((kind, body) : mt) : CST.object_elem =
           `Semg_ellips (
             trans_semgrep_ellipsis (Run.matcher_token v)
           )
-      | Alt (2, v) ->
-          `Semg_ellips_meta (
-            trans_semgrep_ellipsis_metavar (Run.matcher_token v)
-          )
       | _ -> assert false
       )
   | Leaf _ -> assert false
@@ -1775,10 +1768,6 @@ and trans_body ((kind, body) : mt) : CST.body =
               `Semg_ellips (
                 trans_semgrep_ellipsis (Run.matcher_token v)
               )
-          | Alt (3, v) ->
-              `Semg_ellips_meta (
-                trans_semgrep_ellipsis_metavar (Run.matcher_token v)
-              )
           | _ -> assert false
           )
         )
@@ -1815,14 +1804,53 @@ let trans_config_file ((kind, body) : mt) : CST.config_file =
       )
   | Leaf _ -> assert false
 
+(*
+   Costly operation that translates a whole tree or subtree.
+
+   The first pass translates it into a generic tree structure suitable
+   to guess which node corresponds to each grammar rule.
+   The second pass is a translation into a typed tree where each grammar
+   node has its own type.
+
+   This function is called:
+   - once on the root of the program after removing extras
+     (comments and other nodes that occur anywhere independently from
+     the grammar);
+   - once of each extra node, resulting in its own independent tree of type
+     'extra'.
+*)
+let translate_tree src node trans_x =
+  let matched_tree = Run.match_tree children_regexps src node in
+  Option.map trans_x matched_tree
+
+
+let translate_extra src (node : Tree_sitter_output_t.node) : CST.extra option =
+  match node.type_ with
+  | "comment" ->
+      (match translate_tree src node trans_comment with
+      | None -> None
+      | Some x -> Some (Comment (Run.get_loc node, x)))
+  | "whitespace" ->
+      (match translate_tree src node trans_whitespace with
+      | None -> None
+      | Some x -> Some (Whitespace (Run.get_loc node, x)))
+  | _ -> None
+
+let translate_root src root_node =
+  translate_tree src root_node trans_config_file
+
 let parse_input_tree input_tree =
   let orig_root_node = Tree_sitter_parsing.root input_tree in
   let src = Tree_sitter_parsing.src input_tree in
   let errors = Run.extract_errors src orig_root_node in
-  let root_node = Run.remove_extras ~extras orig_root_node in
-  let matched_tree = Run.match_tree children_regexps src root_node in
-  let opt_program = Option.map trans_config_file matched_tree in
-  Parsing_result.create src opt_program errors
+  let opt_program, extras =
+     Run.translate
+       ~extras
+       ~translate_root:(translate_root src)
+       ~translate_extra:(translate_extra src)
+       orig_root_node
+  in
+  Parsing_result.create src opt_program extras errors
 
 let string ?src_file contents =
   let input_tree = parse_source_string ?src_file contents in

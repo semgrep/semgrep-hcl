@@ -400,6 +400,9 @@ type semgrep_expression (* inlined *) = (
     Token.t (* "__SEMGREP_EXPRESSION" *) * expression
 )
 
-type extra = Comment of Loc.t * comment | Whitespace of Loc.t * whitespace
+type extra = [
+    `Comment of Loc.t * comment
+  | `Whitespace of Loc.t * whitespace
+]
 
 type extras = extra list

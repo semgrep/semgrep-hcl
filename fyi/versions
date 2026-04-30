@@ -2,35 +2,43 @@ File: semgrep-grammars/src/tree-sitter-hcl/LICENSE
 Git repo name: tree-sitter-hcl
 Latest commit in repo: 67a5c19755fdb997ff21c8a10fab6302cb45c89a
 Last change in file:
-  commit 67a5c19755fdb997ff21c8a10fab6302cb45c89a
-  Author: mhoffm <mhoffm@posteo.de>
-  Date:   Thu Sep 16 00:12:41 2021 +0200
+  commit 89c1b30cde6f7eabd82d1650e8d95ef97ebc8165
+  Author: Michael Hoffmann <17451647+MichaHoffmann@users.noreply.github.com>
+  Date:   Mon Jun 7 20:38:42 2021 +0200
   
-      run workflows on pull requests
+      Initial commit
 ---
 File: semgrep-grammars/src/tree-sitter-hcl/grammar.js
 Git repo name: tree-sitter-hcl
 Latest commit in repo: 67a5c19755fdb997ff21c8a10fab6302cb45c89a
 Last change in file:
-  commit 67a5c19755fdb997ff21c8a10fab6302cb45c89a
+  commit 735c57ad9c9353003dd9c933bc22839c585db398
   Author: mhoffm <mhoffm@posteo.de>
-  Date:   Thu Sep 16 00:12:41 2021 +0200
+  Date:   Wed Sep 15 22:03:00 2021 +0200
   
-      run workflows on pull requests
+      generate parser; add todos for template directives
 ---
 File: semgrep-grammars/src/semgrep-hcl/grammar.js
-Git repo name: ocaml-tree-sitter-semgrep
-Latest commit in repo: 091f5438fc0c15b80217f00e5b94ec0e55517383
+Git repo name: agent-ab2ff21af79c1f57b
+Latest commit in repo: cb48e07e816acbdca9366c8a00a7a79826fc0779
 Last change in file:
-  commit c26f8adb33c1bc65cbb21bd7fe973dae52a86f84
-  Author: pad <yoann.padioleau@gmail.com>
-  Date:   Tue Sep 21 14:31:49 2021 +0200
+  commit cb48e07e816acbdca9366c8a00a7a79826fc0779
+  Author: brandonspark <brandon@semgrep.com>
+  Date:   Wed Apr 29 17:41:23 2026 -0700
   
-      [HCL] Allow ellipsis for object_elem
+      fix(hcl): add $...X ellipsis-metavariable and fix namespaced function calls
       
-      This will help https://github.com/returntocorp/semgrep/issues/3913
+      Wire `$...IDENT` into `body`, `object_elem`, and `_expr_term` so it
+      parses as a block-body element, object entry, attribute value,
+      function argument, and tuple element. Add a postfix
+      `_expr_term get_attr ( args )` production on `_expr_term` so
+      namespaced calls like `$NS.$F($ARG)` and `provider.fn(arg)` parse;
+      the existing postfix `_expr_term get_attr` production still handles
+      plain attribute access (`foo.bar`), and a new `[$._expr_term]`
+      conflict entry keeps both parses live until the trailing `(` (or its
+      absence) disambiguates.
       
-      test plan:
-      test file included
-      ./test-lang hcl
+      Fixes LANG-490, LANG-498.
+      
+      Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ---
